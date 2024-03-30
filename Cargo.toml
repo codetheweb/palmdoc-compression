@@ -29,6 +29,7 @@ harness = false
 [[bench]]
 name = "calibre"
 harness = false
+required-features = ["calibre"]
 
 [build-dependencies]
 cc = "1.0"
