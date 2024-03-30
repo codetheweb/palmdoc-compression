@@ -1,43 +1,46 @@
-use std::collections::HashMap;
 use std::io::Write;
+use suffix_array::SuffixArray;
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     let mut i = 0;
     let len = data.len();
-    let mut hash_table = HashMap::new();
 
-    for pos in 0..len {
-        for end in pos + 3..std::cmp::min(pos + 11, len + 1) {
-            hash_table
-                .entry(&data[pos..end])
-                .or_insert_with(Vec::new)
-                .push(pos);
-        }
-    }
+    let mut table = SuffixArray::new(data);
+    table.enable_buckets();
 
     while i < len {
         if i > 10 && (len - i) > 10 {
-            let mut match_index = None;
+            let mut match_index: Option<usize> = None;
             let mut chunk_length = 0;
 
-            for j in (3..=10).rev() {
-                if i + j > len {
-                    continue;
-                }
-                let chunk = &data[i..(i + j)];
-                if let Some(positions) = hash_table.get(chunk) {
-                    for &match_i in positions.iter().rev() {
-                        if match_i < i && i - match_i <= 2047 {
-                            match_index = Some(match_i);
-                            chunk_length = j;
-                            break;
-                        }
-                    }
+            let chunk = &data[i..(i + 3)];
+            let positions = table.search_all(chunk);
+            let mut longest_match = 0;
+
+            for position in positions.iter().rev() {
+                if *position > i as u32 {
+                    break;
                 }
 
-                if match_index.is_some() {
-                    break;
+                // Maximum offset is 2048
+                if *position as usize == i || i - (*position as usize) > 2047 {
+                    continue;
+                }
+
+                let mut j = 3;
+                while i + j < len
+                    && *position as usize + j < len
+                    && data[i + j] == data[*position as usize + j]
+                    && j < 10
+                {
+                    j += 1;
+                }
+
+                if j > longest_match {
+                    longest_match = j;
+                    match_index = Some(*position as usize);
+                    chunk_length = j;
                 }
             }
 
@@ -198,16 +201,4 @@ mod tests {
             assert_eq!(decompressed, expected);
         }
     }
-
-    // #[test]
-    // fn test_hash() {
-    //     let input = 0xDEADBEEFCAFEBABE; // Example input.
-    //     let polynomial = 0x1EDC6F41; // Example polynomial.
-    //     let num_hashes = 5;
-    //     let hashes = batch_process_hashes(input, polynomial, num_hashes);
-
-    //     for (i, hash) in hashes.iter().enumerate() {
-    //         println!("Hash {}: {:x}", i, hash);
-    //     }
-    // }
 }
