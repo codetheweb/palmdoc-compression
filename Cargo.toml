@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+libc = "0.2.153"
 suffix_array = "0.5.0"
 
 [dev-dependencies]
@@ -21,3 +22,10 @@ strip = false
 [[bench]]
 name = "palmdoc"
 harness = false
+
+[[bench]]
+name = "calibre"
+harness = false
+
+[build-dependencies]
+cc = "1.0"
