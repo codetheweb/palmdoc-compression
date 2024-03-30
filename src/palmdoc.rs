@@ -1,49 +1,61 @@
-use memchr::memmem;
+use std::collections::HashMap;
 use std::io::Write;
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     let mut i = 0;
     let len = data.len();
+    let mut hash_table = HashMap::new();
+
+    for pos in 0..len {
+        for end in pos + 3..std::cmp::min(pos + 11, len + 1) {
+            hash_table
+                .entry(&data[pos..end])
+                .or_insert_with(Vec::new)
+                .push(pos);
+        }
+    }
 
     while i < len {
         if i > 10 && (len - i) > 10 {
-            let mut chunk = vec![];
             let mut match_index = None;
+            let mut chunk_length = 0;
 
-            // todo: can run memmem once instead of in loop?
             for j in (3..=10).rev() {
-                chunk = data[i..(i + j)].to_vec();
-                if let Some(match_i) = memmem::rfind(&data[..i], &chunk) {
-                    match_index = Some(match_i);
-                } else {
+                if i + j > len {
                     continue;
                 }
-
-                if let Some(match_index) = match_index {
-                    if i - match_index <= 2047 {
-                        break;
+                let chunk = &data[i..(i + j)];
+                if let Some(positions) = hash_table.get(chunk) {
+                    for &match_i in positions.iter().rev() {
+                        if match_i < i && i - match_i <= 2047 {
+                            match_index = Some(match_i);
+                            chunk_length = j;
+                            break;
+                        }
                     }
                 }
 
-                match_index = None;
+                if match_index.is_some() {
+                    break;
+                }
             }
 
             if let Some(match_index) = match_index {
-                let n = chunk.len();
                 let m = (i - match_index) as u16;
-                let code = 0x8000 + ((m << 3) & 0x3ff8).wrapping_add((n as u16).wrapping_sub(3));
+                let code = 0x8000 + ((m << 3) & 0x3ff8) + ((chunk_length as u16) - 3);
                 out.write_all(&code.to_be_bytes()).unwrap();
-                i += n;
+                i += chunk_length;
                 continue;
             }
         }
 
+        // Single byte encoding or special cases handling
         let byte = data[i];
         i += 1;
 
-        if byte == b' ' && (i + 1) < len && (0x40..0x80).contains(&data[i]) {
-            out.write_all(&[(data[i] ^ 0x80)]).unwrap();
+        if byte == b' ' && i + 1 < len && (0x40..0x80).contains(&data[i]) {
+            out.write_all(&[data[i] ^ 0x80]).unwrap();
             i += 1;
             continue;
         }
@@ -56,7 +68,6 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
 
             while j < len && binseq.len() < 8 {
                 let ch = data[j];
-
                 if ch == 0 || (ch > 8 && ch < 0x80) {
                     break;
                 }
@@ -187,4 +198,16 @@ mod tests {
             assert_eq!(decompressed, expected);
         }
     }
+
+    // #[test]
+    // fn test_hash() {
+    //     let input = 0xDEADBEEFCAFEBABE; // Example input.
+    //     let polynomial = 0x1EDC6F41; // Example polynomial.
+    //     let num_hashes = 5;
+    //     let hashes = batch_process_hashes(input, polynomial, num_hashes);
+
+    //     for (i, hash) in hashes.iter().enumerate() {
+    //         println!("Hash {}: {:x}", i, hash);
+    //     }
+    // }
 }
