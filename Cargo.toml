@@ -12,3 +12,12 @@ memchr = "2.7.2"
 hex = "0.4.3"
 criterion = { version = "0.5", features = ["html_reports"] }
 lipsum = "0.9.0"
+rand = "0.8.5"
+
+[profile.bench]
+debug = true
+strip = false
+
+[[bench]]
+name = "palmdoc"
+harness = false
