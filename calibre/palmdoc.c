@@ -1,3 +1,5 @@
+// This was taken from Calibre's source at commit e85af24.
+// I slightly modified it by removing the Python bindings.
 #include <stdio.h>
 #include <stdlib.h>
 
