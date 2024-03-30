@@ -1,62 +1,75 @@
-use memchr::memmem;
-use std::io::Write;
+use suffix_array::SuffixArray;
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     let mut i = 0;
     let len = data.len();
 
+    let mut table = SuffixArray::new(data);
+    table.enable_buckets();
+
     while i < len {
         if i > 10 && (len - i) > 10 {
-            let mut chunk = vec![];
-            let mut match_index = None;
+            let mut match_index: Option<usize> = None;
+            let mut chunk_length = 0;
 
-            // todo: can run memmem once instead of in loop?
-            for j in (3..=10).rev() {
-                chunk = data[i..(i + j)].to_vec();
-                if let Some(match_i) = memmem::rfind(&data[..i], &chunk) {
-                    match_index = Some(match_i);
-                } else {
+            let chunk = &data[i..(i + 3)];
+            let positions = table.search_all(chunk);
+            let mut longest_match = 0;
+
+            for position in positions.iter().rev() {
+                if *position > i as u32 {
+                    break;
+                }
+
+                // Maximum offset is 2048
+                if *position as usize == i || i - (*position as usize) > 2047 {
                     continue;
                 }
 
-                if let Some(match_index) = match_index {
-                    if i - match_index <= 2047 {
-                        break;
-                    }
+                let mut j = 3;
+                while i + j < len
+                    && *position as usize + j < len
+                    && data[i + j] == data[*position as usize + j]
+                    && j < 10
+                {
+                    j += 1;
                 }
 
-                match_index = None;
+                if j > longest_match {
+                    longest_match = j;
+                    match_index = Some(*position as usize);
+                    chunk_length = j;
+                }
             }
 
             if let Some(match_index) = match_index {
-                let n = chunk.len();
                 let m = (i - match_index) as u16;
-                let code = 0x8000 + ((m << 3) & 0x3ff8).wrapping_add((n as u16).wrapping_sub(3));
-                out.write_all(&code.to_be_bytes()).unwrap();
-                i += n;
+                let code = 0x8000 + ((m << 3) & 0x3ff8) + ((chunk_length as u16) - 3);
+                out.extend(&code.to_be_bytes());
+                i += chunk_length;
                 continue;
             }
         }
 
+        // Single byte encoding or special cases handling
         let byte = data[i];
         i += 1;
 
-        if byte == b' ' && (i + 1) < len && (0x40..0x80).contains(&data[i]) {
-            out.write_all(&[(data[i] ^ 0x80)]).unwrap();
+        if byte == b' ' && i + 1 < len && (0x40..0x80).contains(&data[i]) {
+            out.push(data[i] ^ 0x80);
             i += 1;
             continue;
         }
 
         if byte == 0 || (byte > 8 && byte < 0x80) {
-            out.write_all(&[byte]).unwrap();
+            out.push(byte);
         } else {
             let mut j = i;
             let mut binseq = vec![byte];
 
             while j < len && binseq.len() < 8 {
                 let ch = data[j];
-
                 if ch == 0 || (ch > 8 && ch < 0x80) {
                     break;
                 }
@@ -65,8 +78,8 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
                 j += 1;
             }
 
-            out.write_all(&(binseq.len() as u8).to_be_bytes()).unwrap();
-            out.write_all(&binseq).unwrap();
+            out.extend(&(binseq.len() as u8).to_be_bytes());
+            out.extend(&binseq);
             i += binseq.len() - 1;
         }
     }
