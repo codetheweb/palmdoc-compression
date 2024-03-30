@@ -1,4 +1,3 @@
-use std::io::Write;
 use suffix_array::SuffixArray;
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
@@ -47,7 +46,7 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
             if let Some(match_index) = match_index {
                 let m = (i - match_index) as u16;
                 let code = 0x8000 + ((m << 3) & 0x3ff8) + ((chunk_length as u16) - 3);
-                out.write_all(&code.to_be_bytes()).unwrap();
+                out.extend(&code.to_be_bytes());
                 i += chunk_length;
                 continue;
             }
@@ -58,13 +57,13 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
         i += 1;
 
         if byte == b' ' && i + 1 < len && (0x40..0x80).contains(&data[i]) {
-            out.write_all(&[data[i] ^ 0x80]).unwrap();
+            out.push(data[i] ^ 0x80);
             i += 1;
             continue;
         }
 
         if byte == 0 || (byte > 8 && byte < 0x80) {
-            out.write_all(&[byte]).unwrap();
+            out.push(byte);
         } else {
             let mut j = i;
             let mut binseq = vec![byte];
@@ -79,8 +78,8 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
                 j += 1;
             }
 
-            out.write_all(&(binseq.len() as u8).to_be_bytes()).unwrap();
-            out.write_all(&binseq).unwrap();
+            out.extend(&(binseq.len() as u8).to_be_bytes());
+            out.extend(&binseq);
             i += binseq.len() - 1;
         }
     }
