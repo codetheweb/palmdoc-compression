@@ -1,45 +1,67 @@
-use suffix_array::SuffixArray;
+use std::collections::HashMap;
+
+const BASE: u64 = 257; // Prime base of polynomial rolling hash
+const MODULUS: u64 = 1_000_000_007;
+
+struct RollingHash {
+    hash: u64,
+    base_pow_n: u64, // BASE^window_size mod MODULUS
+}
+
+impl RollingHash {
+    fn new(window: &[u8]) -> Self {
+        let mut hash = 0;
+        let mut base_pow_n = 1;
+        for &byte in window.iter().rev() {
+            hash = (hash * BASE + byte as u64) % MODULUS;
+            if base_pow_n < window.len() as u64 {
+                base_pow_n = (base_pow_n * BASE) % MODULUS;
+            }
+        }
+        Self { hash, base_pow_n }
+    }
+
+    fn roll(&mut self, out_byte: u8, in_byte: u8) {
+        let out_contribution = (out_byte as u64 * self.base_pow_n) % MODULUS;
+        self.hash = (self.hash + MODULUS - out_contribution) % MODULUS; // Remove old byte
+        self.hash = (self.hash * BASE + in_byte as u64) % MODULUS; // Add new byte
+    }
+}
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     let mut i = 0;
     let len = data.len();
 
-    let mut table = SuffixArray::new(data);
-    table.enable_buckets();
+    let mut hash_table: HashMap<u64, Vec<usize>> = HashMap::new();
+    let window_size = 3; // Example window size
+    for i in 0..data.len() - window_size + 1 {
+        let window = &data[i..i + window_size];
+        let rolling_hash = RollingHash::new(window);
+        hash_table.entry(rolling_hash.hash).or_default().push(i);
+    }
 
     while i < len {
         if i > 10 && (len - i) > 10 {
             let mut match_index: Option<usize> = None;
             let mut chunk_length = 0;
 
-            let chunk = &data[i..(i + 3)];
-            let positions = table.search_all(chunk);
-            let mut longest_match = 0;
+            let chunk = &data[i..(i + window_size)];
 
-            for position in positions.iter().rev() {
-                if *position > i as u32 {
-                    break;
-                }
+            let current_hash = RollingHash::new(chunk);
+            if let Some(positions) = hash_table.get(&current_hash.hash) {
+                for &position in positions {
+                    if position >= i || i - position > 2047 {
+                        continue;
+                    }
 
-                // Maximum offset is 2048
-                if *position as usize == i || i - (*position as usize) > 2047 {
-                    continue;
-                }
-
-                let mut j = 3;
-                while i + j < len
-                    && *position as usize + j < len
-                    && data[i + j] == data[*position as usize + j]
-                    && j < 10
-                {
-                    j += 1;
-                }
-
-                if j > longest_match {
-                    longest_match = j;
-                    match_index = Some(*position as usize);
-                    chunk_length = j;
+                    for j in (window_size..10).rev() {
+                        if data[position..position + j] == data[i..i + j] && j > chunk_length {
+                            match_index = Some(position);
+                            chunk_length = j;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -150,6 +172,8 @@ pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use lipsum::lipsum;
+
     use super::*;
 
     fn get_calibre_testcases() -> Vec<(Vec<u8>, Vec<u8>)> {
@@ -199,5 +223,15 @@ mod tests {
             let decompressed = decompress_palmdoc(&compressed);
             assert_eq!(decompressed, expected);
         }
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let input = lipsum(4096);
+        let input = input.as_bytes()[..4096].to_vec();
+
+        let compressed = compress_palmdoc(&input);
+        let decompressed = decompress_palmdoc(&compressed);
+        assert_eq!(input, decompressed);
     }
 }
