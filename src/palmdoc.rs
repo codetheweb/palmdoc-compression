@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 const BASE: u64 = 257; // Prime base of polynomial rolling hash
 const MODULUS: u64 = 1_000_000_007;
@@ -43,8 +43,7 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
 
     while i < len {
         if i > 10 && (len - i) > 10 {
-            let mut match_index: Option<usize> = None;
-            let mut chunk_length = 0;
+            let mut match_range: Option<Range<usize>> = None;
 
             let chunk = &data[i..(i + window_size)];
 
@@ -55,21 +54,22 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
                         continue;
                     }
 
-                    for j in (window_size..10).rev() {
-                        if data[position..position + j] == data[i..i + j] && j > chunk_length {
-                            match_index = Some(position);
-                            chunk_length = j;
+                    for j in (window_size..11).rev() {
+                        if j > match_range.as_ref().unwrap_or(&(0..0)).len()
+                            && data[position..position + j] == data[i..i + j]
+                        {
+                            match_range = Some(position..position + j);
                             break;
                         }
                     }
                 }
             }
 
-            if let Some(match_index) = match_index {
-                let m = (i - match_index) as u16;
-                let code = 0x8000 + ((m << 3) & 0x3ff8) + ((chunk_length as u16) - 3);
+            if let Some(match_range) = match_range {
+                let m = (i - match_range.start) as u16;
+                let code = 0x8000 + ((m << 3) & 0x3ff8) + ((match_range.len() as u16) - 3);
                 out.extend(&code.to_be_bytes());
-                i += chunk_length;
+                i += match_range.len();
                 continue;
             }
         }
