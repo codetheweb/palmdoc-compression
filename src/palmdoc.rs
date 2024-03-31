@@ -1,4 +1,5 @@
-use std::{collections::HashMap, ops::Range};
+use fnv::FnvHashMap;
+use std::ops::Range;
 
 const BASE: u64 = 257; // Prime base of polynomial rolling hash
 const MODULUS: u64 = 1_000_000_007;
@@ -33,7 +34,7 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut i = 0;
     let len = data.len();
 
-    let mut hash_table: HashMap<u64, Vec<usize>> = HashMap::new();
+    let mut hash_table: FnvHashMap<u64, Vec<usize>> = FnvHashMap::default();
     let window_size = 3; // Example window size
     for i in 0..data.len() - window_size + 1 {
         let window = &data[i..i + window_size];
