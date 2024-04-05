@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(data.len());
 
     let mut window = Window::new();
     let mut table = HashTable::new();
@@ -58,7 +58,8 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
             out.push(byte);
         } else {
             let mut j = offset;
-            let mut binseq = vec![byte];
+            let mut binseq = Vec::with_capacity(8);
+            binseq.push(byte);
 
             while j < data.len() && binseq.len() < 8 {
                 let ch = data[j];

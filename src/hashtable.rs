@@ -61,9 +61,9 @@ impl HashTable {
     /// sliding window.
     fn match_length(&self, key: &[u8], index: usize, window: &Window) -> usize {
         let max_offs = std::cmp::min(key.len(), MAX_MATCH_LEN);
-        for i in 0..max_offs {
+        for (i, byte) in key.iter().enumerate().take(max_offs) {
             let w_idx = (index + i) % WINDOW_SIZE;
-            if w_idx == window.position || key[i] != window.data[w_idx] {
+            if w_idx == window.position || *byte != window.data[w_idx] {
                 return i;
             }
         }
@@ -85,13 +85,12 @@ impl HashTable {
         upcoming: &[u8],
         window: &Window,
     ) -> Option<(usize, usize)> {
-        let chain_len = self.chain_length;
         let mut chain_offset = self.chain_offsets[chain_idx];
         let mut longest_len = 0;
         let mut longest_idx = 0;
         let chain = self.hash_chain_for_hash(chain_idx);
-        for _ in 0..chain_len {
-            chain_offset = chain_offset.wrapping_sub(1) % chain_len;
+        for _ in 0..self.chain_length {
+            chain_offset = chain_offset.wrapping_sub(1) % self.chain_length;
             if chain[chain_offset] == HASH_NIL {
                 break;
             }
