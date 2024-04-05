@@ -1,97 +1,66 @@
-use fnv::FnvHashMap;
-use std::ops::Range;
-
-const BASE: u64 = 257; // Prime base of polynomial rolling hash
-const MODULUS: u64 = 1_000_000_007;
-
-struct RollingHash {
-    hash: u64,
-    base_pow_n: u64, // BASE^window_size mod MODULUS
-}
-
-impl RollingHash {
-    fn new(window: &[u8]) -> Self {
-        let mut hash = 0;
-        let mut base_pow_n = 1;
-        for &byte in window.iter().rev() {
-            hash = (hash * BASE + byte as u64) % MODULUS;
-            if base_pow_n < window.len() as u64 {
-                base_pow_n = (base_pow_n * BASE) % MODULUS;
-            }
-        }
-        Self { hash, base_pow_n }
-    }
-
-    fn roll(&mut self, out_byte: u8, in_byte: u8) {
-        let out_contribution = (out_byte as u64 * self.base_pow_n) % MODULUS;
-        self.hash = (self.hash + MODULUS - out_contribution) % MODULUS; // Remove old byte
-        self.hash = (self.hash * BASE + in_byte as u64) % MODULUS; // Add new byte
-    }
-}
+use crate::{
+    hashtable::HashTable,
+    window::{Window, MAX_MATCH_LEN},
+};
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
-    let mut i = 0;
-    let len = data.len();
 
-    let mut hash_table: FnvHashMap<u64, Vec<usize>> = FnvHashMap::default();
-    let window_size = 3; // Example window size
-    for i in 0..data.len() - window_size + 1 {
-        let window = &data[i..i + window_size];
-        let rolling_hash = RollingHash::new(window);
-        hash_table.entry(rolling_hash.hash).or_default().push(i);
-    }
+    let mut window = Window::new();
+    let mut table = HashTable::new();
 
-    while i < len {
-        if i > 10 && (len - i) > 10 {
-            let mut match_range: Option<Range<usize>> = None;
+    let mut offset = 0;
+    while offset < data.len() {
+        let remainder = &data[offset..];
+        if remainder.len() > 3 {
+            let hash = table.hash(&remainder[..3]);
+            table.insert(hash, window.position as u16);
+            if let Some((distance, length)) = table.reference(hash, remainder, &window) {
+                // todo: this matches Calibre behavior where it doesn't encode length distance pairs that are close to the beginning or end of the data, but is this an actual PalmDoc limitation?
+                if MAX_MATCH_LEN < offset && offset < data.len() - MAX_MATCH_LEN {
+                    let m = distance as u16;
+                    let code = 0x8000 + ((m << 3) & 0x3ff8) + ((length as u16) - 3);
+                    out.extend(&code.to_be_bytes());
 
-            let chunk = &data[i..(i + window_size)];
-
-            let current_hash = RollingHash::new(chunk);
-            if let Some(positions) = hash_table.get(&current_hash.hash) {
-                for &position in positions {
-                    if position >= i || i - position > 2047 {
-                        continue;
-                    }
-
-                    for j in (window_size..11).rev() {
-                        if j > match_range.as_ref().unwrap_or(&(0..0)).len()
-                            && data[position..position + j] == data[i..i + j]
-                        {
-                            match_range = Some(position..position + j);
-                            break;
+                    for _ in 0..length {
+                        // todo: should use push_reference?
+                        if offset + 3 < data.len() {
+                            let hash = table.hash(&data[offset..offset + 3]);
+                            table.insert(hash, window.position as u16);
                         }
+                        window.push(data[offset]);
+                        offset += 1;
                     }
-                }
-            }
 
-            if let Some(match_range) = match_range {
-                let m = (i - match_range.start) as u16;
-                let code = 0x8000 + ((m << 3) & 0x3ff8) + ((match_range.len() as u16) - 3);
-                out.extend(&code.to_be_bytes());
-                i += match_range.len();
-                continue;
+                    continue;
+                }
             }
         }
 
         // Single byte encoding or special cases handling
-        let byte = data[i];
-        i += 1;
+        let byte = data[offset];
+        offset += 1;
+        window.push(byte);
 
-        if byte == b' ' && i + 1 < len && (0x40..0x80).contains(&data[i]) {
-            out.push(data[i] ^ 0x80);
-            i += 1;
+        if byte == b' ' && offset + 1 < data.len() && (0x40..0x80).contains(&data[offset]) {
+            out.push(data[offset] ^ 0x80);
+
+            if offset + 3 < data.len() {
+                table.insert(table.hash(&data[offset..offset + 3]), offset as u16);
+            }
+
+            window.push(data[offset]);
+            offset += 1;
             continue;
         }
 
         if byte == 0 || (byte > 8 && byte < 0x80) {
             out.push(byte);
         } else {
-            let mut j = i;
+            let mut j = offset;
             let mut binseq = vec![byte];
 
-            while j < len && binseq.len() < 8 {
+            while j < data.len() && binseq.len() < 8 {
                 let ch = data[j];
                 if ch == 0 || (ch > 8 && ch < 0x80) {
                     break;
@@ -103,7 +72,8 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
 
             out.extend(&(binseq.len() as u8).to_be_bytes());
             out.extend(&binseq);
-            i += binseq.len() - 1;
+            window.advance(binseq.len() - 1);
+            offset += binseq.len() - 1;
         }
     }
 
@@ -174,6 +144,7 @@ pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use lipsum::lipsum;
+    use pretty_assertions::assert_eq;
 
     use super::*;
 
@@ -205,8 +176,8 @@ mod tests {
             ),
             (
                 hex::decode("61626373646661736466616263646173646f66617373").unwrap(),
-                hex::decode("61626373646661736466616263646173646f66617373").unwrap()
-            )
+                hex::decode("61626373646661736466616263646173646f66617373").unwrap(),
+            ),
         ];
     }
 
