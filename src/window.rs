@@ -6,14 +6,14 @@ pub const MAX_MATCH_LEN: usize = 10;
 
 /// A very simple sliding window implementation.
 pub struct Window {
-    pub data: Box<[u8; WINDOW_SIZE]>,
+    pub data: [u8; WINDOW_SIZE],
     pub position: usize,
 }
 
 impl Window {
     pub fn new() -> Self {
         Self {
-            data: Box::new([0; WINDOW_SIZE]),
+            data: [0; WINDOW_SIZE],
             position: 0,
         }
     }
