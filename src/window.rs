@@ -1,5 +1,4 @@
-/// The maximum allowed backreference distance which is also the size of the
-/// sliding window.
+/// The maximum allowed backreference distance is the size of the window.
 pub const WINDOW_SIZE: usize = 2048;
 /// The longest match length we allow.
 pub const MAX_MATCH_LEN: usize = 10;

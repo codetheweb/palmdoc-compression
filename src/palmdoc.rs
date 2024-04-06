@@ -68,6 +68,12 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
                 }
 
                 binseq.push(ch);
+
+                if j + 3 < data.len() {
+                    table.insert(table.hash(&data[j..j + 3]), j as u16);
+                }
+                window.push(ch);
+
                 j += 1;
             }
 

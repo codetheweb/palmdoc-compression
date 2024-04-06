@@ -11,7 +11,7 @@ fn main() {
         .flat_map(|chunk| palmdoc::compress_palmdoc(&chunk))
         .collect::<Vec<_>>();
     println!(
-        "Custom library compression ratio: {:.2}%",
+        "Custom library compression ratio: {:.4}%",
         library_compressed.len() as f64 / text.len() as f64
     );
 
@@ -23,7 +23,7 @@ fn main() {
             .flat_map(|chunk| calibre::compress(&chunk))
             .collect::<Vec<_>>();
         println!(
-            "Calibre compression ratio: {:.2}%",
+            "Calibre compression ratio: {:.4}%",
             calibre_compressed.len() as f64 / text.len() as f64
         );
     }
