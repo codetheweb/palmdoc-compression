@@ -15,7 +15,7 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
         if remainder.len() > 3 {
             let hash = table.hash(&remainder[..3]);
             table.insert(hash, window.position as u16);
-            if let Some((distance, length)) = table.reference(hash, remainder, &window) {
+            if let Some((distance, length)) = table.reference(hash, remainder, &window, offset) {
                 // todo: this matches Calibre behavior where it doesn't encode length distance pairs that are close to the beginning or end of the data, but is this an actual PalmDoc limitation?
                 if MAX_MATCH_LEN < offset && offset < data.len() - MAX_MATCH_LEN {
                     let m = distance as u16;
@@ -23,7 +23,6 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
                     out.extend(&code.to_be_bytes());
 
                     for _ in 0..length {
-                        // todo: should use push_reference?
                         if offset + 3 < data.len() {
                             let hash = table.hash(&data[offset..offset + 3]);
                             table.insert(hash, window.position as u16);
@@ -79,6 +78,7 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
 
             out.extend(&(binseq.len() as u8).to_be_bytes());
             out.extend(&binseq);
+            // todo: can remove this?
             window.advance(binseq.len() - 1);
             offset += binseq.len() - 1;
         }

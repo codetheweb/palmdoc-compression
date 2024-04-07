@@ -26,36 +26,4 @@ impl Window {
     pub fn advance(&mut self, len: usize) {
         self.position = (self.position + len) % WINDOW_SIZE;
     }
-
-    /// Calculates the distance of the
-    pub fn distance_from(&self, index: usize) -> usize {
-        if self.position > index {
-            self.position - index
-        } else {
-            WINDOW_SIZE - index + self.position
-        }
-    }
-
-    /// Inserts a back-reference based on distance and backreference length.
-    /// Returns the inserted region.
-    pub fn push_reference(&mut self, dist: usize, len: usize) -> (&[u8], &[u8]) {
-        assert!(dist <= WINDOW_SIZE);
-        assert!(len <= MAX_MATCH_LEN);
-
-        let wnd_start = (self.position + WINDOW_SIZE - dist) % WINDOW_SIZE;
-        let mut wnd_idx = wnd_start;
-        let ins_start = self.position;
-        for _ in 0..len {
-            self.data[self.position] = self.data[wnd_idx];
-            self.position = (self.position + 1) % WINDOW_SIZE;
-            wnd_idx = (wnd_idx + 1) % WINDOW_SIZE;
-        }
-        if ins_start <= self.position {
-            // One slice
-            (&self.data[ins_start..self.position], &self.data[0..0])
-        } else {
-            // Two slices
-            (&self.data[ins_start..], &self.data[..self.position])
-        }
-    }
 }

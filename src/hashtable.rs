@@ -83,6 +83,7 @@ impl HashTable {
         chain_idx: usize,
         upcoming: &[u8],
         window: &Window,
+        current_absolute_offset: usize,
     ) -> Option<(usize, usize)> {
         let mut chain_offset = self.chain_offsets[chain_idx];
         let mut longest_len = 0;
@@ -93,9 +94,12 @@ impl HashTable {
             if chain[chain_offset] == HASH_NIL {
                 break;
             }
-            let idx = chain[chain_offset];
-            let match_len = self.match_length(upcoming, idx as usize, window);
-            if longest_len < match_len && match_len <= MAX_MATCH_LEN {
+            let idx = chain[chain_offset] as usize;
+            let match_len = self.match_length(upcoming, idx, window);
+            if longest_len < match_len
+                && match_len <= MAX_MATCH_LEN
+                && idx < current_absolute_offset
+            {
                 longest_len = match_len;
                 longest_idx = idx;
             }
@@ -103,8 +107,7 @@ impl HashTable {
         if longest_len < 3 {
             None
         } else {
-            let dist = window.distance_from(longest_idx as usize);
-            Some((dist, longest_len))
+            Some((current_absolute_offset - longest_idx, longest_len))
         }
     }
 }
