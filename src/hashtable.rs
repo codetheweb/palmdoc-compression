@@ -8,9 +8,6 @@ const HASH_CHAIN_LENGTH: usize = 32;
 /// The nil-value in the hash-chain (meaning the end of chain).
 const HASH_NIL: u16 = u16::MAX;
 
-// Note: since HASH_CHAIN_COUNT is a power of 2, we use bitwise AND for modulus.
-// E.x. % HASH_CHAIN_COUNT -> & (HASH_CHAIN_COUNT - 1) to compute the modulus.
-
 /// A simple hash-table that manages chains of hash values.
 pub struct HashTable {
     chain_offsets: [usize; HASH_CHAIN_COUNT],
@@ -26,11 +23,9 @@ impl HashTable {
         }
     }
 
-    /// Hashes the given bytes. Returns the index of the corresponging
-    /// hash-chain.
+    /// Hashes the given bytes. Returns the index of the corresponding hash-chain.
     pub fn hash(&self, key: &[u8]) -> usize {
         // FNV hash
-
         assert!(key.len() == 3);
 
         const FNV_BASIS: u64 = 0xcbf29ce484222325;
@@ -41,7 +36,7 @@ impl HashTable {
             result ^= *b as u64;
             result = result.wrapping_mul(FNV_PRIME);
         }
-        result as usize & (HASH_CHAIN_COUNT - 1)
+        result as usize % HASH_CHAIN_COUNT
     }
 
     /// Returns the hash chain for the given hash value.
@@ -56,8 +51,7 @@ impl HashTable {
         &mut self.data[offs..(offs + HASH_CHAIN_LENGTH)]
     }
 
-    /// Returns the maximum match length of the key and the given offset of the
-    /// sliding window.
+    /// Returns the maximum match length of the key and the given offset of the sliding window.
     fn match_length(&self, key: &[u8], index: usize, window: &Window) -> usize {
         let max_offs = std::cmp::min(key.len(), MAX_MATCH_LEN);
         for (i, byte) in key.iter().enumerate().take(max_offs) {
@@ -73,7 +67,7 @@ impl HashTable {
     pub fn insert(&mut self, chain_idx: usize, val: u16) {
         let offs = self.chain_offsets[chain_idx];
         self.hash_chain_for_hash_mut(chain_idx)[offs] = val;
-        self.chain_offsets[chain_idx] = (offs + 1) & (HASH_CHAIN_LENGTH - 1);
+        self.chain_offsets[chain_idx] = (offs + 1) % HASH_CHAIN_LENGTH;
     }
 
     /// Searches for a backreference using the given chain index, input and
@@ -90,7 +84,7 @@ impl HashTable {
         let mut longest_idx = 0;
         let chain = self.hash_chain_for_hash(chain_idx);
         for _ in 0..HASH_CHAIN_LENGTH {
-            chain_offset = chain_offset.wrapping_sub(1) & (HASH_CHAIN_LENGTH - 1);
+            chain_offset = chain_offset.wrapping_sub(1) % HASH_CHAIN_LENGTH;
             if chain[chain_offset] == HASH_NIL {
                 break;
             }
