@@ -54,7 +54,7 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-fuzz
         run: |
-          cargo bininstall cargo-fuzz
+          cargo binstall cargo-fuzz --no-confirm
       - name: Fuzz
         run: |
           cargo fuzz run palmdoc -- -max_total_time=180
