@@ -49,7 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install stable --no-self-update
+      # Not sure why CI fuzz requires nightly
+      - run: rustup toolchain install nightly --profile minimal --no-self-update
       - uses: Swatinem/rust-cache@v2
       - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-fuzz
@@ -57,4 +58,4 @@ jobs:
           cargo binstall cargo-fuzz --no-confirm
       - name: Fuzz
         run: |
-          cargo fuzz run palmdoc -- -max_total_time=180
+          cargo +nightly fuzz run palmdoc -- -max_total_time=180
