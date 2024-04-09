@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lipsum::lipsum;
 use palmdoc_compression::palmdoc::{compress_palmdoc, decompress_palmdoc};
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, SeedableRng};
 
 const CHUNK_SIZE: usize = 4096;
 
@@ -13,7 +13,8 @@ fn war_and_peace(c: &mut Criterion) {
     let mut group = c.benchmark_group("war_and_peace");
     group.throughput(criterion::Throughput::Bytes(CHUNK_SIZE as u64));
     group.bench_function("decompress", |b| {
-        let chunk = chunks.choose(&mut rand::thread_rng()).unwrap();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+        let chunk = chunks.choose(&mut rng).unwrap();
         let compressed = compress_palmdoc(&chunk);
 
         b.iter(|| {
@@ -21,7 +22,8 @@ fn war_and_peace(c: &mut Criterion) {
         })
     });
     group.bench_function("compress", |b| {
-        let chunk = chunks.choose(&mut rand::thread_rng()).unwrap();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+        let chunk = chunks.choose(&mut rng).unwrap();
         b.iter(|| {
             compress_palmdoc(black_box(&chunk));
         })

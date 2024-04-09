@@ -1,86 +1,86 @@
-use suffix_array::SuffixArray;
+use crate::{
+    hashtable::HashTable,
+    window::{Window, MAX_MATCH_LEN},
+};
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
-    let mut out = Vec::new();
-    let mut i = 0;
-    let len = data.len();
+    let mut out = Vec::with_capacity(data.len());
 
-    let mut table = SuffixArray::new(data);
-    table.enable_buckets();
+    let mut window = Window::new();
+    let mut table = HashTable::new();
 
-    while i < len {
-        if i > 10 && (len - i) > 10 {
-            let mut match_index: Option<usize> = None;
-            let mut chunk_length = 0;
+    let mut offset = 0;
+    while offset < data.len() {
+        let remainder = &data[offset..];
+        if remainder.len() > 3 {
+            let hash = table.hash(&remainder[..3]);
+            table.insert(hash, window.position as u16);
+            if let Some((distance, length)) = table.reference(hash, remainder, &window, offset) {
+                // todo: this matches Calibre behavior where it doesn't encode length distance pairs that are close to the beginning or end of the data, but is this an actual PalmDoc limitation?
+                if MAX_MATCH_LEN < offset && offset < data.len() - MAX_MATCH_LEN {
+                    let m = distance as u16;
+                    let code = 0x8000 + ((m << 3) & 0x3ff8) + ((length as u16) - 3);
+                    out.extend(&code.to_be_bytes());
 
-            let chunk = &data[i..(i + 3)];
-            let positions = table.search_all(chunk);
-            let mut longest_match = 0;
+                    for _ in 0..length {
+                        if offset + 3 < data.len() {
+                            let hash = table.hash(&data[offset..offset + 3]);
+                            table.insert(hash, window.position as u16);
+                        }
+                        window.push(data[offset]);
+                        offset += 1;
+                    }
 
-            for position in positions.iter().rev() {
-                if *position > i as u32 {
-                    break;
-                }
-
-                // Maximum offset is 2048
-                if *position as usize == i || i - (*position as usize) > 2047 {
                     continue;
                 }
-
-                let mut j = 3;
-                while i + j < len
-                    && *position as usize + j < len
-                    && data[i + j] == data[*position as usize + j]
-                    && j < 10
-                {
-                    j += 1;
-                }
-
-                if j > longest_match {
-                    longest_match = j;
-                    match_index = Some(*position as usize);
-                    chunk_length = j;
-                }
-            }
-
-            if let Some(match_index) = match_index {
-                let m = (i - match_index) as u16;
-                let code = 0x8000 + ((m << 3) & 0x3ff8) + ((chunk_length as u16) - 3);
-                out.extend(&code.to_be_bytes());
-                i += chunk_length;
-                continue;
             }
         }
 
         // Single byte encoding or special cases handling
-        let byte = data[i];
-        i += 1;
+        let byte = data[offset];
+        offset += 1;
+        window.push(byte);
 
-        if byte == b' ' && i + 1 < len && (0x40..0x80).contains(&data[i]) {
-            out.push(data[i] ^ 0x80);
-            i += 1;
+        if byte == b' ' && offset + 1 < data.len() && (0x40..0x80).contains(&data[offset]) {
+            out.push(data[offset] ^ 0x80);
+
+            if offset + 3 < data.len() {
+                table.insert(table.hash(&data[offset..offset + 3]), offset as u16);
+            }
+
+            window.push(data[offset]);
+            offset += 1;
             continue;
         }
 
         if byte == 0 || (byte > 8 && byte < 0x80) {
             out.push(byte);
         } else {
-            let mut j = i;
-            let mut binseq = vec![byte];
+            let mut j = offset;
+            let mut binseq = Vec::with_capacity(8);
+            binseq.push(byte);
 
-            while j < len && binseq.len() < 8 {
+            while j < data.len() && binseq.len() < 8 {
                 let ch = data[j];
                 if ch == 0 || (ch > 8 && ch < 0x80) {
                     break;
                 }
 
                 binseq.push(ch);
+
+                if j + 3 < data.len() {
+                    table.insert(table.hash(&data[j..j + 3]), j as u16);
+                }
+                window.push(ch);
+
                 j += 1;
             }
 
             out.extend(&(binseq.len() as u8).to_be_bytes());
             out.extend(&binseq);
-            i += binseq.len() - 1;
+            // todo: can remove this?
+            window.advance(binseq.len() - 1);
+            offset += binseq.len() - 1;
         }
     }
 
@@ -150,6 +150,9 @@ pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use lipsum::lipsum;
+    use pretty_assertions::assert_eq;
+
     use super::*;
 
     fn get_calibre_testcases() -> Vec<(Vec<u8>, Vec<u8>)> {
@@ -180,8 +183,8 @@ mod tests {
             ),
             (
                 hex::decode("61626373646661736466616263646173646f66617373").unwrap(),
-                hex::decode("61626373646661736466616263646173646f66617373").unwrap()
-            )
+                hex::decode("61626373646661736466616263646173646f66617373").unwrap(),
+            ),
         ];
     }
 
@@ -199,5 +202,15 @@ mod tests {
             let decompressed = decompress_palmdoc(&compressed);
             assert_eq!(decompressed, expected);
         }
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let input = lipsum(4096);
+        let input = input.as_bytes()[..4096].to_vec();
+
+        let compressed = compress_palmdoc(&input);
+        let decompressed = decompress_palmdoc(&compressed);
+        assert_eq!(input, decompressed);
     }
 }
