@@ -7,5 +7,5 @@ fuzz_target!(|data: &[u8]| {
     let compressed = compress_palmdoc(data);
     let decompressed = decompress_palmdoc(&compressed);
 
-    assert_eq!(data, &decompressed[..]);
+    assert_eq!(&decompressed[..], data);
 });

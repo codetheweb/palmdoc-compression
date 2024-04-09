@@ -22,8 +22,4 @@ impl Window {
         self.data[self.position] = byte;
         self.position = (self.position + 1) % WINDOW_SIZE;
     }
-
-    pub fn advance(&mut self, len: usize) {
-        self.position = (self.position + len) % WINDOW_SIZE;
-    }
 }
