@@ -78,8 +78,6 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
 
             out.extend(&(binseq.len() as u8).to_be_bytes());
             out.extend(&binseq);
-            // todo: can remove this?
-            window.advance(binseq.len() - 1);
             offset += binseq.len() - 1;
         }
     }

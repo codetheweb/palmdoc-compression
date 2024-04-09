@@ -1,6 +1,6 @@
 name: checks
 
-on: [push, pull_request]
+on: push
 
 jobs:
   test:
@@ -43,3 +43,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: |
           cargo fmt --check
+
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Not sure why CI fuzz requires nightly
+      - run: rustup toolchain install nightly --profile minimal --no-self-update
+      - uses: Swatinem/rust-cache@v2
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install cargo-fuzz
+        run: |
+          cargo binstall cargo-fuzz --no-confirm
+      - name: Fuzz
+        run: |
+          cargo +nightly fuzz run palmdoc -- -max_total_time=180
