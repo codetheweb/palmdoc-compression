@@ -8,7 +8,7 @@ fn main() {
 
     let library_compressed = text
         .chunks(4096)
-        .flat_map(|chunk| palmdoc::compress_palmdoc(&chunk))
+        .flat_map(|chunk| palmdoc::compress(&chunk))
         .collect::<Vec<_>>();
     println!(
         "Custom library compression ratio: {:.4}%",

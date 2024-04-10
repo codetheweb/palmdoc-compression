@@ -4,7 +4,7 @@ use crate::{
 };
 use thiserror::Error;
 
-pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
+pub fn compress(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(data.len());
 
     let mut window = Window::new();
@@ -94,7 +94,7 @@ pub enum DecompressError {
     InvalidOffset,
 }
 
-pub fn decompress_palmdoc(data: &[u8]) -> Result<Vec<u8>, DecompressError> {
+pub fn decompress(data: &[u8]) -> Result<Vec<u8>, DecompressError> {
     // Adapted from https://metacpan.org/release/AZED/EBook-Tools-0.3.3/source/lib/EBook/Tools/PalmDoc.pm
     let len = data.len();
     let mut offset = 0;
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn test_compress_palmdoc() {
         for (input, expected) in get_calibre_testcases() {
-            let compressed = compress_palmdoc(&input);
+            let compressed = compress(&input);
             assert_eq!(compressed, expected);
         }
     }
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_decompress_palmdoc() {
         for (expected, compressed) in get_calibre_testcases() {
-            let decompressed = decompress_palmdoc(&compressed).unwrap();
+            let decompressed = decompress(&compressed).unwrap();
             assert_eq!(decompressed, expected);
         }
     }
@@ -215,8 +215,8 @@ mod tests {
         let input = lipsum(4096);
         let input = input.as_bytes()[..4096].to_vec();
 
-        let compressed = compress_palmdoc(&input);
-        let decompressed = decompress_palmdoc(&compressed).unwrap();
+        let compressed = compress(&input);
+        let decompressed = decompress(&compressed).unwrap();
         assert_eq!(input, decompressed);
     }
 }
