@@ -4,6 +4,19 @@ This is a fast, safe, and correct implementation of PalmDoc-flavored LZ77 compre
 
 This crate also includes Calibre's version for comparison and usage if desired, gated behind the `calibre` feature.
 
+## Usage
+
+```rust
+use palmdoc_compression::{compress, decompress};
+
+let data = b"hello world";
+
+let compressed = compress(data);
+let decompressed = decompress(&compressed).unwrap();
+
+assert_eq!(data, decompressed);
+```
+
 ## ⚡ Benchmarks
 
 MOBI/AZW files are split into 4KB chunks, so benchmarks here also use 4KB chunks. Benchmarks were run on a M1 Max.
