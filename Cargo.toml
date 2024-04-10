@@ -7,6 +7,7 @@ description = "Fast & safe implementation of PalmDoc/MOBI/AZW/Kindle flavored LZ
 repository = "https://github.com/codetheweb/palmdoc-compression"
 readme = "README.md"
 exclude = ["examples/*", "resources/*"]
+keywords = ["palmdoc", "compression", "kindle", "lz77"]
 
 [dependencies]
 libc = { version = "0.2.153", optional = true }
