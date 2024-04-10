@@ -1,5 +1,7 @@
 # 🖐️ palmdoc-compression
 
+[![docs.rs](https://img.shields.io/docsrs/palmdoc-compression)](https://docs.rs/palmdoc-compression/latest/palmdoc_compression/)
+
 This is a fast, safe, and correct implementation of PalmDoc-flavored LZ77 compression (primarily used by Amazon ebook formats). Compression is **300-400x** faster than Calibre's implementation with a comparable compression ratio.
 
 This crate also includes Calibre's version for comparison and usage if desired, gated behind the `calibre` feature.
