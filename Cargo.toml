@@ -2,8 +2,11 @@
 name = "palmdoc-compression"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+description = "Fast & safe implementation of PalmDoc/MOBI/AZW/Kindle flavored LZ77"
+repository = "https://github.com/codetheweb/palmdoc-compression"
+readme = "README.md"
+exclude = ["examples/*", "resources/*"]
 
 [dependencies]
 libc = { version = "0.2.153", optional = true }
