@@ -2,6 +2,7 @@ use crate::{
     hashtable::HashTable,
     window::{Window, MAX_MATCH_LEN},
 };
+use thiserror::Error;
 
 pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(data.len());
@@ -85,7 +86,15 @@ pub fn compress_palmdoc(data: &[u8]) -> Vec<u8> {
     out
 }
 
-pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
+#[derive(Error, Debug)]
+pub enum DecompressError {
+    #[error("offset to LZ77 bits is outside of the data")]
+    OffsetOutsideData,
+    #[error("LZ77 decompression offset is invalid")]
+    InvalidOffset,
+}
+
+pub fn decompress_palmdoc(data: &[u8]) -> Result<Vec<u8>, DecompressError> {
     // Adapted from https://metacpan.org/release/AZED/EBook-Tools-0.3.3/source/lib/EBook/Tools/PalmDoc.pm
     let len = data.len();
     let mut offset = 0;
@@ -110,8 +119,7 @@ pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
             offset += 1;
 
             if offset > len {
-                println!("WARNING: offset to LZ77 bits is outside of the data");
-                return Vec::new();
+                return Err(DecompressError::OffsetOutsideData);
             }
 
             let mut lz77 = u16::from_be_bytes([data[offset - 2], data[offset - 1]]);
@@ -126,8 +134,7 @@ pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
             let lz77offset = (lz77 >> 3) as usize;
 
             if lz77offset < 1 {
-                println!("WARNING: LZ77 decompression offset is invalid!");
-                return Vec::new();
+                return Err(DecompressError::InvalidOffset);
             }
 
             // Getting text from the offset
@@ -143,7 +150,8 @@ pub fn decompress_palmdoc(data: &[u8]) -> Vec<u8> {
             uncompressed.push(byte ^ 0x80);
         }
     }
-    uncompressed
+
+    Ok(uncompressed)
 }
 
 #[cfg(test)]
@@ -197,7 +205,7 @@ mod tests {
     #[test]
     fn test_decompress_palmdoc() {
         for (expected, compressed) in get_calibre_testcases() {
-            let decompressed = decompress_palmdoc(&compressed);
+            let decompressed = decompress_palmdoc(&compressed).unwrap();
             assert_eq!(decompressed, expected);
         }
     }
@@ -208,7 +216,7 @@ mod tests {
         let input = input.as_bytes()[..4096].to_vec();
 
         let compressed = compress_palmdoc(&input);
-        let decompressed = decompress_palmdoc(&compressed);
+        let decompressed = decompress_palmdoc(&compressed).unwrap();
         assert_eq!(input, decompressed);
     }
 }

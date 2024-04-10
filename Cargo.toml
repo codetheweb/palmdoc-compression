@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 libc = { version = "0.2.153", optional = true }
 suffix_array = "0.5.0"
+thiserror = "1.0.58"
 
 [dev-dependencies]
 hex = "0.4.3"
