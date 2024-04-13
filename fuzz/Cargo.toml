@@ -25,3 +25,9 @@ name = "palmdoc"
 path = "fuzz_targets/palmdoc.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "decompress"
+path = "fuzz_targets/decompress.rs"
+test = false
+doc = false

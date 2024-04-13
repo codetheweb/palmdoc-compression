@@ -92,6 +92,8 @@ pub enum DecompressError {
     OffsetOutsideData,
     #[error("LZ77 decompression offset is invalid")]
     InvalidOffset,
+    #[error("not enough data")]
+    NotEnoughData,
 }
 
 pub fn decompress(data: &[u8]) -> Result<Vec<u8>, DecompressError> {
@@ -108,7 +110,11 @@ pub fn decompress(data: &[u8]) -> Result<Vec<u8>, DecompressError> {
             // Nulls are literal
             uncompressed.push(byte);
         } else if byte <= 8 {
-            // Next byte is literal
+            if offset + byte as usize > len {
+                return Err(DecompressError::NotEnoughData);
+            }
+
+            // Next bytes are literals
             uncompressed.extend_from_slice(&data[offset..offset + byte as usize]);
             offset += byte as usize;
         } else if byte <= 0x7f {
@@ -140,9 +146,12 @@ pub fn decompress(data: &[u8]) -> Result<Vec<u8>, DecompressError> {
             // Getting text from the offset
             let mut textlength = uncompressed.len();
             for _ in 0..lz77length {
-                let textpos = textlength - lz77offset;
-                uncompressed.push(uncompressed[textpos]);
-                textlength += 1;
+                if let Some(textpos) = textlength.checked_sub(lz77offset) {
+                    uncompressed.push(uncompressed[textpos]);
+                    textlength += 1;
+                } else {
+                    return Err(DecompressError::InvalidOffset);
+                }
             }
         } else {
             // 0xc0 - 0xff are single characters (XOR 0x80) preceded by a space
