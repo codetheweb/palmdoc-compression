@@ -47,6 +47,9 @@ jobs:
   fuzz:
     name: Fuzz
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        fuzz_target: [palmdoc, decompress]
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install stable --profile minimal --no-self-update
@@ -58,4 +61,4 @@ jobs:
           cargo binstall cargo-fuzz --no-confirm --force
       - name: Fuzz
         run: |
-          cargo +nightly fuzz run palmdoc -- -max_total_time=180
+          cargo +nightly fuzz run ${{ matrix.fuzz_target }} -- -max_total_time=180
