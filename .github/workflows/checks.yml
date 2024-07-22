@@ -52,13 +52,12 @@ jobs:
         fuzz_target: [palmdoc, decompress]
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install stable --profile minimal --no-self-update
       - run: rustup toolchain install nightly --profile minimal --no-self-update
+      - run: rustup default nightly
       - uses: Swatinem/rust-cache@v2
-      - uses: cargo-bins/cargo-binstall@main
       - name: Install cargo-fuzz
         run: |
-          cargo binstall cargo-fuzz --no-confirm --force
+          cargo install cargo-fuzz
       - name: Fuzz
         run: |
-          cargo +nightly fuzz run ${{ matrix.fuzz_target }} -- -max_total_time=180
+          cargo fuzz run ${{ matrix.fuzz_target }} -- -max_total_time=180
